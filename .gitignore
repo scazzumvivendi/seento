@@ -1,0 +1,45 @@
+### Gradle / Android build output
+.gradle/
+.kotlin/
+**/build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+### Local machine configuration
+local.properties
+*.iml
+.DS_Store
+
+### Android Studio / IntelliJ user state
+.idea/caches/
+.idea/libraries/
+.idea/modules.xml
+.idea/workspace.xml
+.idea/**/workspace.xml
+.idea/tasks.xml
+.idea/shelf/
+.idea/gradle.xml
+.idea/navEditor.xml
+.idea/assetWizardSettings.xml
+.idea/deploymentTargetSelector.xml
+.idea/deviceManager.xml
+.idea/deviceStreaming.xml
+.idea/**
+
+### Generated packages and reports
+*.apk
+*.aab
+*.ap_
+
+### Signing secrets (keep signing configs and credentials out of Git)
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+
+### OS/editor temporary files
+Thumbs.db
+*.swp
+*.swo
+*~
