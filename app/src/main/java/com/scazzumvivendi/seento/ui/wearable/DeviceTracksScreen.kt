@@ -19,6 +19,11 @@ import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.automirrored.outlined.PlaylistPlay
 import androidx.compose.material.icons.outlined.Watch
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
@@ -29,12 +34,24 @@ import com.scazzumvivendi.seento.ui.theme.SeentoRed
 import com.scazzumvivendi.seento.ui.theme.SeentoRedSoft
 import com.scazzumvivendi.seento.ui.components.SeentoBottomBar
 import com.scazzumvivendi.seento.ui.components.SeentoHeader
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun DeviceTracksScreen(state: WearableUiState, onHomeClick: () -> Unit, onDeviceClick: () -> Unit,
                        onSettingsClick: () -> Unit,
                        modifier: Modifier = Modifier
                        ) {
+    var visibleError by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(state.errorMessage) {
+        visibleError = state.errorMessage
+        if (state.errorMessage != null) {
+            delay(3_000.milliseconds)
+            visibleError = null
+        }
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = { SeentoHeader() },
@@ -71,14 +88,9 @@ fun DeviceTracksScreen(state: WearableUiState, onHomeClick: () -> Unit, onDevice
                 }
             }
         }
-        state.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
+
+        visibleError?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
     }
+
     }
 }
-
-@Composable
-private fun navigationItemColors() = NavigationBarItemDefaults.colors(
-    indicatorColor = SeentoRed,
-    selectedIconColor = MaterialTheme.colorScheme.onPrimary,
-    selectedTextColor = SeentoRed
-)

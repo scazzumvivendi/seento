@@ -73,6 +73,7 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.reorderable)
     implementation(files(mdslibAar.get()))
     implementation("com.polidea.rxandroidble2:rxandroidble:1.10.2")
     implementation("io.reactivex.rxjava2:rxandroid:2.1.1")

@@ -9,9 +9,11 @@ import com.scazzumvivendi.seento.domain.repository.PlaylistRepository
 import com.scazzumvivendi.seento.data.ble.model.RemoteMusicTrack
 import com.scazzumvivendi.seento.data.ble.model.RemotePlaylist
 import com.scazzumvivendi.seento.domain.model.Track
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.scazzumvivendi.seento.R
 
@@ -375,9 +377,15 @@ class PlaylistViewModel(
         fromIndex: Int,
         toIndex: Int
     ) {
+        if (_uiState.value.isSaving || _uiState.value.isImporting) return
         val currentPlaylist = _uiState.value.playlists
             .firstOrNull { it.id == playlistId }
             ?: return
+
+        if (fromIndex !in currentPlaylist.tracks.indices ||
+            toIndex !in currentPlaylist.tracks.indices ||
+            fromIndex == toIndex
+        ) return
 
         val updatedPlaylist = currentPlaylist.moveTrack(
             fromIndex = fromIndex,
@@ -394,17 +402,29 @@ class PlaylistViewModel(
             }
         )
 
+    }
+
+    fun saveTrackOrder(playlistId: Long) {
+        if (_uiState.value.isSaving || _uiState.value.isImporting) return
+        val playlist = _uiState.value.playlists.firstOrNull { it.id == playlistId }
+            ?: return
+        val orderedTrackIds = playlist.tracks.map { it.id }
+
         viewModelScope.launch {
             try {
                 repository.reorderTracks(
                     playlistId = playlistId,
-                    orderedTrackIds = updatedPlaylist.tracks.map { it.id }
+                    orderedTrackIds = orderedTrackIds
                 )
+            } catch (exception: CancellationException) {
+                throw exception
             } catch (exception: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    errorMessage = exception.message
-                        ?: text(R.string.cannot_save_track_order)
-                )
+                _uiState.update {
+                    it.copy(
+                        errorMessage = exception.message
+                            ?: text(R.string.cannot_save_track_order)
+                    )
+                }
             }
         }
     }

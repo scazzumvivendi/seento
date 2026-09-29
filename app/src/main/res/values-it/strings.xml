@@ -99,6 +99,9 @@
     <string name="tracks_already_in_playlist">I brani selezionati sono già nella playlist</string>
     <string name="cannot_add_device_tracks">Impossibile aggiungere i brani del dispositivo</string>
     <string name="cannot_save_track_order">Impossibile salvare il nuovo ordine</string>
+    <string name="move_track_up">Sposta su</string>
+    <string name="move_track_down">Sposta giù</string>
+    <string name="track_actions">Altre azioni per %1$s</string>
     <string name="cannot_save_changes">Impossibile salvare le modifiche</string>
     <string name="copy_suffix">copia</string>
     <string name="copy_suffix_number">copia %1$d</string>

@@ -277,6 +277,9 @@ class MainActivity : AppCompatActivity() {
                                     toIndex = toIndex
                                 )
                             },
+                            onSaveTrackOrder = {
+                                viewModel.saveTrackOrder(selectedPlaylist.id)
+                            },
                             onRemoveTrack = { index ->
                                 viewModel.removeTrackAt(
                                     playlistId = selectedPlaylist.id,

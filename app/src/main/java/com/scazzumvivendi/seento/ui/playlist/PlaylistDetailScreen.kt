@@ -62,6 +62,7 @@ import com.scazzumvivendi.seento.ui.components.SeentoHeader
 fun PlaylistDetailScreen(
     playlist: Playlist,
     onMoveTrack: (fromIndex: Int, toIndex: Int) -> Unit,
+    onSaveTrackOrder: () -> Unit = {},
     onRemoveTrack: (index: Int) -> Unit,
     onRename: (String) -> Unit,
     onDelete: () -> Unit,
@@ -215,8 +216,10 @@ fun PlaylistDetailScreen(
         ReorderableTrackList(
             tracks = playlist.tracks,
             onMoveTrack = onMoveTrack,
+            onSaveTrackOrder = onSaveTrackOrder,
             onRemoveTrack = if (readOnly) null else onRemoveTrack,
             readOnly = readOnly,
+            enabled = !isSaving,
             modifier = Modifier
                 .weight(1f)
                 .padding(top = 24.dp)
