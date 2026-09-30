@@ -2,7 +2,6 @@ package com.scazzumvivendi.seento.data.ble
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothProfile
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
@@ -60,7 +59,6 @@ class BleDeviceScanner(context: Context) {
     fun start() {
         _devices.value = emptyList()
         _scanError.value = null
-        refreshKnownDevices()
         val activeScanner = scanner
         if (activeScanner == null) {
             _scanError.value = -1
@@ -74,19 +72,6 @@ class BleDeviceScanner(context: Context) {
                     .build(),
                 callback
             )
-        } catch (_: SecurityException) {
-            _scanError.value = -2
-        }
-    }
-
-    @SuppressLint("MissingPermission")
-    private fun refreshKnownDevices() {
-        try {
-            adapter?.bondedDevices.orEmpty().forEach(::addKnownDevice)
-            bluetoothManager?.let { manager ->
-                manager.getConnectedDevices(BluetoothProfile.GATT)
-                    .forEach(::addKnownDevice)
-            }
         } catch (_: SecurityException) {
             _scanError.value = -2
         }
@@ -109,18 +94,6 @@ class BleDeviceScanner(context: Context) {
             name = name,
             hasMdsService = result.scanRecord?.serviceUuids
                 ?.contains(mdsServiceUuid) == true
-        )
-    }
-
-    @SuppressLint("MissingPermission")
-    private fun addKnownDevice(device: BluetoothDevice) {
-        addDevice(
-            device = device,
-            name = device.name ?: localizedString(
-                R.string.paired_device_name,
-                device.address.takeLast(5)
-            ),
-            hasMdsService = false
         )
     }
 

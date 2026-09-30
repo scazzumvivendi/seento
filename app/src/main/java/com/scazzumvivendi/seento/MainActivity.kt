@@ -21,11 +21,22 @@ import com.scazzumvivendi.seento.ui.playlist.PlaylistLibraryScreen
 import com.scazzumvivendi.seento.ui.playlist.PlaylistViewModel
 import com.scazzumvivendi.seento.ui.playlist.PlaylistViewModelFactory
 import com.scazzumvivendi.seento.ui.theme.SeentoTheme
+import com.scazzumvivendi.seento.ui.theme.SeentoRedSoft
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.unit.dp
 import com.scazzumvivendi.seento.ui.playlist.PlaylistDetailScreen
 import com.scazzumvivendi.seento.ui.wearable.WearableScreen
 import com.scazzumvivendi.seento.ui.wearable.WearableViewModel
@@ -144,6 +155,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, true)
+        window.navigationBarColor = SeentoRedSoft.toArgb()
         WindowInsetsControllerCompat(window, window.decorView).apply {
             isAppearanceLightStatusBars = true
             isAppearanceLightNavigationBars = true
@@ -178,6 +190,25 @@ class MainActivity : AppCompatActivity() {
                     .collectAsStateWithLifecycle()
                     .value
 
+                val snackbarHostState = androidx.compose.runtime.remember { SnackbarHostState() }
+                LaunchedEffect(snackbarHostState) {
+                    wearableViewModel.feedbackMessages.collect { message ->
+                        snackbarHostState.showSnackbar(message)
+                    }
+                }
+                LaunchedEffect(state.errorMessage, wearableState.errorMessage, wearableState.successMessage) {
+                    listOfNotNull(state.errorMessage, wearableState.errorMessage, wearableState.successMessage)
+                        .distinct()
+                        .forEach { snackbarHostState.showSnackbar(it) }
+                }
+                LaunchedEffect(state.successMessage) {
+                    state.successMessage?.let { message ->
+                        snackbarHostState.showSnackbar(message)
+                        viewModel.clearSuccessMessage(message)
+                    }
+                }
+
+                Box(Modifier.fillMaxSize()) {
                 if (destination.screen == AppScreen.SETTINGS) {
                     com.scazzumvivendi.seento.ui.settings.SettingsScreen(
                         selectedLanguage = currentLanguage?.takeIf { it == "it" } ?: "en",
@@ -252,8 +283,6 @@ class MainActivity : AppCompatActivity() {
                         onTracksClick = { destination = AppDestination(AppScreen.TRACKS) },
                         lastDeviceName = wearableState.lastDeviceName,
                         isDeviceConnected = wearableState.connectionStatus == com.scazzumvivendi.seento.data.ble.MdsConnectionStatus.CONNECTED,
-                        deviceFeedback = wearableState.successMessage ?: wearableState.errorMessage,
-                        deviceFeedbackIsError = wearableState.errorMessage != null,
                         onSendPlaylist = { playlist ->
                             if (wearableState.connectionStatus == com.scazzumvivendi.seento.data.ble.MdsConnectionStatus.CONNECTED) {
                                 wearableViewModel.writePlaylist(playlist) { remoteId ->
@@ -297,7 +326,6 @@ class MainActivity : AppCompatActivity() {
                                 destination = AppDestination(AppScreen.PLAYLISTS)
                             },
                             isSaving = state.isSaving,
-                            errorMessage = state.errorMessage,
                             deviceTracks = wearableState.tracks,
                             onAddDeviceTracks = { tracks ->
                                 viewModel.addDeviceTracks(selectedPlaylist.id, tracks)
@@ -307,8 +335,6 @@ class MainActivity : AppCompatActivity() {
                             },
                             isDeviceConnected = wearableState.connectionStatus == com.scazzumvivendi.seento.data.ble.MdsConnectionStatus.CONNECTED,
                             isSendingPlaylist = wearableState.isWritingPlaylist,
-                            sendFeedback = wearableState.successMessage ?: wearableState.errorMessage,
-                            sendFeedbackIsError = wearableState.errorMessage != null,
                             onHomeClick = { destination = AppDestination(AppScreen.PLAYLISTS) },
                             onDeviceClick = {
                                 destination = AppDestination(AppScreen.DEVICE)
@@ -372,6 +398,15 @@ class MainActivity : AppCompatActivity() {
                     } else {
                         destination = AppDestination(AppScreen.DEVICE)
                     }
+                }
+                SnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = Modifier
+                        .align(androidx.compose.ui.Alignment.BottomCenter)
+                        .navigationBarsPadding()
+                        .padding(bottom = 88.dp)
+                        .padding(16.dp)
+                )
                 }
             }
         }

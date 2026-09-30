@@ -72,8 +72,6 @@ fun PlaylistLibraryScreen(
     lastDeviceName: String? = null,
     isDeviceConnected: Boolean = false,
     onSendPlaylist: (Playlist) -> Unit = {},
-    deviceFeedback: String? = null,
-    deviceFeedbackIsError: Boolean = false,
     onTracksClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -88,7 +86,7 @@ fun PlaylistLibraryScreen(
 
         state.errorMessage != null -> {
             AppShell(selected = 0, onLibraryClick = {}, onDeviceClick = onWearableClick, onTracksClick = onTracksClick, onSettingsClick = onSettingsClick, tracksEnabled = isDeviceConnected) {
-                ErrorContent(message = state.errorMessage, onRetry = onRetry, modifier = Modifier.fillMaxSize().safeDrawingPadding())
+                ErrorContent(onRetry = onRetry, modifier = Modifier.fillMaxSize().safeDrawingPadding())
             }
         }
 
@@ -113,8 +111,6 @@ fun PlaylistLibraryScreen(
                     lastDeviceName,
                     isDeviceConnected,
                     onSendPlaylist,
-                    deviceFeedback,
-                    deviceFeedbackIsError,
                     Modifier
                 )
            }
@@ -177,7 +173,6 @@ private fun LoadingContent(
 
 @Composable
 private fun ErrorContent(
-    message: String,
     onRetry: () -> Unit,
     modifier: Modifier
 ) {
@@ -190,11 +185,6 @@ private fun ErrorContent(
         Text(
             text = stringResource(R.string.generic_error),
             style = MaterialTheme.typography.headlineSmall
-        )
-
-        Text(
-            text = message,
-            modifier = Modifier.padding(top = 8.dp)
         )
 
         TextButton(
@@ -304,8 +294,6 @@ private fun PlaylistList(
     lastDeviceName: String?,
     isDeviceConnected: Boolean,
     onSendPlaylist: (Playlist) -> Unit,
-    deviceFeedback: String?,
-    deviceFeedbackIsError: Boolean,
     modifier: Modifier
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -390,15 +378,5 @@ private fun PlaylistList(
             }
         }
 
-        item {
-            deviceFeedback?.let { feedback ->
-                Text(
-                    text = feedback,
-                    color = if (deviceFeedbackIsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-            }
-        }
     }
 }

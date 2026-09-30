@@ -67,6 +67,8 @@
     <string name="bluetooth_permission_required">I permessi Bluetooth sono necessari per cercare dispositivi</string>
     <string name="cannot_read_file">Impossibile leggere il file</string>
     <string name="imported_playlist">Playlist importata</string>
+    <string name="playlist_imported">Playlist importata</string>
+    <string name="playlist_copied">Playlist copiata</string>
     <string name="mds_session_closed">La sessione MDS è stata chiusa da un’altra connessione. Chiudi l’app Suunto e riconnetti il dispositivo.</string>
     <string name="ble_scanner_unavailable">Scanner Bluetooth non disponibile sul telefono</string>
     <string name="bluetooth_permission_unavailable">Permesso Bluetooth non disponibile</string>

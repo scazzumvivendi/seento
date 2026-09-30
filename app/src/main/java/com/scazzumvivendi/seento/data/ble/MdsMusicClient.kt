@@ -32,6 +32,7 @@ import org.json.JSONObject
 import java.io.Closeable
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.time.Duration.Companion.milliseconds
 
 class MdsMusicClient(context: Context) : Closeable {
 
@@ -68,7 +69,7 @@ class MdsMusicClient(context: Context) : Closeable {
             connectingDevice = CompletableDeferred()
             val session = NgbBleSession(appContext)
             directSession = session
-            val sdkSerial = withTimeout(CONNECTION_TIMEOUT_MS) {
+            val sdkSerial = withTimeout(CONNECTION_TIMEOUT_MS.milliseconds) {
                 session.connect(address) { }
 
                 // Some firmware versions do not emit AboutToConnect before the
@@ -94,11 +95,16 @@ class MdsMusicClient(context: Context) : Closeable {
                         address = connecting.address
                     )
                 )
+                val deviceInfo = connecting.deviceInfo
+                if (deviceInfo == null) {
+                    Log.w(TAG, "ConnectingDevices did not include DeviceInfo; registering serial only")
+                }
                 post(
                     uri = "suunto://MDS/ConnectedDevices",
                     contract = buildConnectedDeviceInfo(
                         serial = announcedSerial,
-                        address = address
+                        whiteboardAddress = connecting.address,
+                        deviceInfo = deviceInfo
                     ).toString()
                 )
                 // A successful ConnectedDevices response (normally 201) is
@@ -132,21 +138,24 @@ class MdsMusicClient(context: Context) : Closeable {
         .put("State", state)
         .toString()
 
-    private fun buildConnectedDeviceInfo(serial: String, address: String): JSONObject =
+    private fun buildConnectedDeviceInfo(
+        serial: String,
+        whiteboardAddress: String,
+        deviceInfo: JSONObject?
+    ): JSONObject =
         JSONObject()
             .put("Serial", serial)
-            .put("manufacturerName", "Suunto")
-            .put("product", "Dilu")
-            .put("variant", "Chengdu")
-            .put("mode", 5)
-            .put("firmware", "3.27.18")
             .put(
-                "addressInfo",
-                JSONArray().put(
-                    JSONObject()
-                        .put("name", "BLE")
-                        .put("address", address.uppercase())
-                )
+                "DeviceInfo",
+                deviceInfo ?: JSONObject()
+                    .put("Serial", serial)
+                    .put("serial", serial)
+            )
+            .put(
+                "Connection",
+                JSONObject()
+                    .put("UUID", whiteboardAddress)
+                    .put("Type", "BLE")
             )
 
     suspend fun readCatalog(
@@ -518,6 +527,7 @@ class MdsMusicClient(context: Context) : Closeable {
                     val state = body.optString("State")
                     val address = body.optString("Address")
                     val deviceInfo = body.optJSONObject("DeviceInfo")
+                        ?: body.optJSONObject("deviceInfo")
                     val serial = body.optString("Serial")
                         .ifBlank { body.optString("serial") }
                         .ifBlank { body.optString("DeviceSerialNumber") }
@@ -527,7 +537,11 @@ class MdsMusicClient(context: Context) : Closeable {
                     if (state.equals("AboutToConnect", ignoreCase = true) && address.isNotBlank()) {
                         Log.i(TAG, "MDS assigned Whiteboard address $address")
                         connectingDevice?.complete(
-                            ConnectingDevice(serial = serial, address = address)
+                            ConnectingDevice(
+                                serial = serial,
+                                address = address,
+                                deviceInfo = deviceInfo?.let { JSONObject(it.toString()) }
+                            )
                         )
                     }
                 }
@@ -663,7 +677,8 @@ private data class DeviceAnnouncement(
 
 private data class ConnectingDevice(
     val serial: String,
-    val address: String
+    val address: String,
+    val deviceInfo: JSONObject? = null
 )
 
 private fun JSONObject.optNullableString(name: String): String? =

@@ -66,6 +66,8 @@
     <string name="bluetooth_permission_required">Bluetooth permissions are required to search for devices</string>
     <string name="cannot_read_file">Unable to read the file</string>
     <string name="imported_playlist">Imported playlist</string>
+    <string name="playlist_imported">Playlist imported</string>
+    <string name="playlist_copied">Playlist copied</string>
     <string name="mds_session_closed">The MDS session was closed by another connection. Close the Suunto app and reconnect the device.</string>
     <string name="ble_scanner_unavailable">Bluetooth scanner is not available on this phone</string>
     <string name="bluetooth_permission_unavailable">Bluetooth permission is not available</string>

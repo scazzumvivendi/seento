@@ -28,6 +28,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
@@ -230,9 +231,7 @@ fun WearableScreen(
                 }
                 item {
                     Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onTracksClick() },
+                        modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = SeentoRedSoft),
                         shape = RoundedCornerShape(16.dp)
                     ) {
@@ -263,6 +262,12 @@ fun WearableScreen(
                                 Text(
                                     pluralStringResource(R.plurals.track_count, state.tracks.size, state.tracks.size),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            FilledIconButton(onClick = onTracksClick) {
+                                Icon(
+                                    imageVector = Icons.Outlined.MusicNote,
+                                    contentDescription = stringResource(R.string.music_catalog)
                                 )
                             }
                         }
@@ -388,12 +393,6 @@ fun WearableScreen(
                 }
                 else -> Unit
             }
-            state.errorMessage?.let { message ->
-                Text(text = message, color = MaterialTheme.colorScheme.error)
-            }
-            state.successMessage?.let { message ->
-                Text(text = message, color = MaterialTheme.colorScheme.primary)
-            }
         }
 
         }
@@ -412,7 +411,10 @@ fun WearableScreen(
                     onClick = {
                         pendingImport = null
                         onCopyPlaylist(playlist)
-                    }
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 ) { Text(stringResource(R.string.make_copy)) }
             },
             confirmButton = {
@@ -471,7 +473,7 @@ private fun DeviceRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            IconButton(
+            FilledIconButton(
                 onClick = { onConnect(device.address) },
                 enabled = !isConnectedDevice &&
                     state.connectionStatus != MdsConnectionStatus.CONNECTING

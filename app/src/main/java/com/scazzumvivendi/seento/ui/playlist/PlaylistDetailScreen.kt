@@ -72,14 +72,11 @@ fun PlaylistDetailScreen(
     onSendPlaylist: (Playlist) -> Unit = {},
     isDeviceConnected: Boolean = false,
     isSendingPlaylist: Boolean = false,
-    sendFeedback: String? = null,
-    sendFeedbackIsError: Boolean = false,
     onHomeClick: () -> Unit = {},
     onDeviceClick: () -> Unit = {},
     onTracksClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
     isSaving: Boolean = false,
-    errorMessage: String? = null,
     readOnly: Boolean = false,
     showRemoveAction: Boolean = false,
     selectedBottomTab: Int = 0,
@@ -192,22 +189,6 @@ fun PlaylistDetailScreen(
             Text(stringResource(R.string.sending_playlist), modifier = Modifier.padding(top = 8.dp))
         }
 
-        sendFeedback?.let { feedback ->
-            Text(
-                text = feedback,
-                color = if (sendFeedbackIsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(top = 8.dp)
-            )
-        }
-
-        if (errorMessage != null) {
-            Text(
-                text = errorMessage,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(top = 8.dp)
-            )
-        }
-
         Text(
             text = pluralStringResource(R.plurals.track_count, playlist.tracks.size, playlist.tracks.size),
             modifier = Modifier.padding(top = 8.dp)
@@ -247,7 +228,12 @@ fun PlaylistDetailScreen(
             title = { Text(stringResource(R.string.delete_playlist_question)) },
             text = { Text(stringResource(R.string.playlist_removed_from_device)) },
             dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
+                TextButton(
+                    onClick = { showDeleteDialog = false },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                ) {
                     Text(stringResource(R.string.cancel))
                 }
             },
@@ -305,7 +291,12 @@ fun PlaylistDetailScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeviceTrackPicker = false }) { Text(stringResource(R.string.cancel)) }
+                TextButton(
+                    onClick = { showDeviceTrackPicker = false },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                ) { Text(stringResource(R.string.cancel)) }
             },
             confirmButton = {
                 TextButton(

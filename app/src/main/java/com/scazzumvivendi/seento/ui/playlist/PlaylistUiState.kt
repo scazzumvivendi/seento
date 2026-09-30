@@ -7,5 +7,6 @@ data class PlaylistListUiState(
     val isImporting: Boolean = false,
     val isSaving: Boolean = false,
     val playlists: List<Playlist> = emptyList(),
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val successMessage: String? = null
 )

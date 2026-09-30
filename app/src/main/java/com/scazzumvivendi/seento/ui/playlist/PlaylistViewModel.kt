@@ -27,6 +27,8 @@ class PlaylistViewModel(
         context?.let { ContextCompat.getContextForLanguage(it).getString(id, *args) } ?: when (id) {
             R.string.cannot_load_playlists -> "Impossibile caricare le playlist"
             R.string.cannot_import_playlist -> "Impossibile importare la playlist"
+            R.string.playlist_imported -> "Playlist importata"
+            R.string.playlist_copied -> "Playlist copiata"
             R.string.playlist_name_required -> "Inserisci un nome per la playlist"
             R.string.cannot_merge_device_playlists -> "Impossibile unire le playlist del dispositivo"
             R.string.device_playlist_missing_tracks -> "Il catalogo non contiene tutti i brani della playlist dell’orologio"
@@ -89,7 +91,8 @@ class PlaylistViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
                 isImporting = true,
-                errorMessage = null
+                errorMessage = null,
+                successMessage = null
             )
 
             try {
@@ -100,7 +103,8 @@ class PlaylistViewModel(
 
                 _uiState.value = _uiState.value.copy(
                     isImporting = false,
-                    playlists = repository.getAllPlaylists()
+                    playlists = repository.getAllPlaylists(),
+                    successMessage = text(R.string.playlist_imported)
                 )
             } catch (exception: Exception) {
                 _uiState.value = _uiState.value.copy(
@@ -117,6 +121,12 @@ class PlaylistViewModel(
             isImporting = false,
             errorMessage = message
         )
+    }
+
+    fun clearSuccessMessage(message: String) {
+        _uiState.update { state ->
+            if (state.successMessage == message) state.copy(successMessage = null) else state
+        }
     }
 
     fun createPlaylist(name: String) {
@@ -137,7 +147,11 @@ class PlaylistViewModel(
     ) {
         if (_uiState.value.isSaving || _uiState.value.isImporting) return
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isSaving = true, errorMessage = null)
+            _uiState.value = _uiState.value.copy(
+                isSaving = true,
+                errorMessage = null,
+                successMessage = null
+            )
             try {
                 var local = repository.getAllPlaylists()
                 val tracksByKey = remoteTracks.associateBy { it.key }
@@ -175,7 +189,10 @@ class PlaylistViewModel(
                 }
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
-                    playlists = local
+                    playlists = local,
+                    successMessage = if (remotePlaylists.isNotEmpty()) {
+                        text(R.string.playlist_imported)
+                    } else null
                 )
             } catch (exception: Exception) {
                 _uiState.value = _uiState.value.copy(
@@ -189,7 +206,11 @@ class PlaylistViewModel(
     fun keepWatchPlaylist(localPlaylistId: Long, remote: RemotePlaylist, remoteTracks: List<RemoteMusicTrack>) {
         if (_uiState.value.isSaving || _uiState.value.isImporting) return
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isSaving = true, errorMessage = null)
+            _uiState.value = _uiState.value.copy(
+                isSaving = true,
+                errorMessage = null,
+                successMessage = null
+            )
             try {
                 val tracksByKey = remoteTracks.associateBy { it.key }
                 val tracks = remote.songKeys.mapNotNull { key ->
@@ -208,7 +229,8 @@ class PlaylistViewModel(
                 repository.replacePlaylistTracks(localPlaylistId, tracks, remote.id)
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
-                    playlists = repository.getAllPlaylists()
+                    playlists = repository.getAllPlaylists(),
+                    successMessage = text(R.string.playlist_imported)
                 )
             } catch (exception: Exception) {
                 _uiState.value = _uiState.value.copy(
@@ -222,7 +244,11 @@ class PlaylistViewModel(
     fun importWatchPlaylist(remote: RemotePlaylist, remoteTracks: List<RemoteMusicTrack>) {
         if (_uiState.value.isSaving || _uiState.value.isImporting) return
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isSaving = true, errorMessage = null)
+            _uiState.value = _uiState.value.copy(
+                isSaving = true,
+                errorMessage = null,
+                successMessage = null
+            )
             try {
                 val tracks = tracksFromRemote(remote, remoteTracks)
                 repository.createPlaylist(
@@ -232,7 +258,8 @@ class PlaylistViewModel(
                 )
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
-                    playlists = repository.getAllPlaylists()
+                    playlists = repository.getAllPlaylists(),
+                    successMessage = text(R.string.playlist_imported)
                 )
             } catch (exception: Exception) {
                 _uiState.value = _uiState.value.copy(
@@ -246,7 +273,11 @@ class PlaylistViewModel(
     fun copyWatchPlaylist(remote: RemotePlaylist, remoteTracks: List<RemoteMusicTrack>) {
         if (_uiState.value.isSaving || _uiState.value.isImporting) return
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isSaving = true, errorMessage = null)
+            _uiState.value = _uiState.value.copy(
+                isSaving = true,
+                errorMessage = null,
+                successMessage = null
+            )
             try {
                 val tracks = tracksFromRemote(remote, remoteTracks)
                 val existingNames = repository.getAllPlaylists()
@@ -262,7 +293,8 @@ class PlaylistViewModel(
                 repository.createPlaylist(name = copyName, tracks = tracks)
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
-                    playlists = repository.getAllPlaylists()
+                    playlists = repository.getAllPlaylists(),
+                    successMessage = text(R.string.playlist_copied)
                 )
             } catch (exception: Exception) {
                 _uiState.value = _uiState.value.copy(

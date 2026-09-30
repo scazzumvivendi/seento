@@ -42,16 +42,6 @@ fun DeviceTracksScreen(state: WearableUiState, onHomeClick: () -> Unit, onDevice
                        onSettingsClick: () -> Unit,
                        modifier: Modifier = Modifier
                        ) {
-    var visibleError by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(state.errorMessage) {
-        visibleError = state.errorMessage
-        if (state.errorMessage != null) {
-            delay(3_000.milliseconds)
-            visibleError = null
-        }
-    }
-
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = { SeentoHeader() },
@@ -89,7 +79,6 @@ fun DeviceTracksScreen(state: WearableUiState, onHomeClick: () -> Unit, onDevice
             }
         }
 
-        visibleError?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
     }
 
     }

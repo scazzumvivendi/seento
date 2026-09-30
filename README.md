@@ -24,12 +24,20 @@ The current local build expects:
 `mdslib-3.33.7-release.aar`
 
 After obtaining the SDK under the applicable license terms, build locally by
-passing its absolute path to Gradle:
+putting its absolute path in the ignored root `.env` file:
+
+```dotenv
+MDSLIB_AAR=/absolute/path/to/mdslib-3.33.7-release.aar
+```
+
+Then build with:
 
 ```sh
-./gradlew :app:assembleDebug \
-  -PmdslibAar=/absolute/path/to/mdslib-3.33.7-release.aar
+./gradlew :app:assembleDebug
 ```
+
+You can still override the local value for a single build with
+`-PmdslibAar=/absolute/path/to/mdslib-3.33.7-release.aar`.
 
 The AAR used during development must not be uploaded to GitHub Releases or
 redistributed through another store without the required permission from

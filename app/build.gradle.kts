@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -5,10 +7,18 @@ plugins {
 }
 
 // MDS is a separately obtained SDK and must never be committed to this repository.
-val mdslibAar = providers.gradleProperty("mdslibAar").map { file(it) }
+// Gradle's gradle.properties format cannot include a dotenv file, so load the
+// optional project-local .env here. An explicit -PmdslibAar still takes priority.
+val envFile = rootProject.file(".env")
+val envValues = Properties().apply {
+    if (envFile.isFile) envFile.inputStream().use(::load)
+}
+val mdslibAarPath = providers.gradleProperty("mdslibAar")
+    .orElse(envValues.getProperty("MDSLIB_AAR") ?: "")
+val mdslibAar = mdslibAarPath.map { rootProject.file(it) }
 
-check(mdslibAar.isPresent) {
-    "MDS SDK missing. Download the permitted MDS AAR and pass " +
+check(mdslibAarPath.get().isNotBlank()) {
+    "MDS SDK missing. Set MDSLIB_AAR in the root .env or pass " +
         "-PmdslibAar=/absolute/path/to/mdslib-3.33.7-release.aar"
 }
 

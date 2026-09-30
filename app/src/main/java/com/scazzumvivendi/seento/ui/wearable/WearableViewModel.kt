@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -47,6 +49,7 @@ class WearableViewModel(
         R.string.tracks_missing_from_device -> "Una o più tracce non sono presenti nel dispositivo"
         R.string.duplicate_device_playlists -> "Esistono più playlist sul dispositivo con questo nome. Sincronizzale prima di inviare."
         R.string.playlist_sent_updating -> "Playlist inviata. Aggiorno i contenuti del dispositivo…"
+        R.string.sending_playlist -> "Invio playlist…"
         R.string.cannot_send_playlist -> "Impossibile inviare la playlist"
         R.string.playlist_removed_updating -> "Playlist rimossa. Aggiorno il catalogo…"
         R.string.cannot_remove_device_playlist -> "Impossibile rimuovere la playlist dal dispositivo"
@@ -60,6 +63,9 @@ class WearableViewModel(
         )
     )
     val uiState: StateFlow<WearableUiState> = _uiState.asStateFlow()
+
+    private val feedbackEvents = Channel<String>(Channel.BUFFERED)
+    val feedbackMessages = feedbackEvents.receiveAsFlow()
     private var scanTimeoutJob: Job? = null
     private var catalogJob: Job? = null
     private var writeJob: Job? = null
@@ -399,6 +405,8 @@ class WearableViewModel(
             return
         }
         val targetRemoteId = playlist.remotePlaylistId ?: matchingRemotePlaylists.singleOrNull()?.id
+
+        feedbackEvents.trySend(text(R.string.sending_playlist))
 
         _uiState.update {
             it.copy(
