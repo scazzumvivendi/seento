@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -14,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import com.scazzumvivendi.seento.R
 import com.scazzumvivendi.seento.ui.components.SeentoBottomBar
@@ -28,6 +30,8 @@ fun SettingsScreen(
     onSettingsClick: () -> Unit,
     isDeviceConnected: Boolean
 ) {
+    val uriHandler = LocalUriHandler.current
+    val privacyPolicyUrl = stringResource(R.string.privacy_policy_url)
     Scaffold(
         topBar = { SeentoHeader() },
         bottomBar = {
@@ -60,6 +64,12 @@ fun SettingsScreen(
                 title = stringResource(R.string.english),
                 selected = selectedLanguage != "it",
                 onClick = { onLanguageSelected("en") }
+            )
+            Text(
+                text = stringResource(R.string.privacy_policy),
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.clickable { uriHandler.openUri(privacyPolicyUrl) }
             )
         }
     }

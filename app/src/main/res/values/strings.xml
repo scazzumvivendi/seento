@@ -7,6 +7,8 @@
     <string name="italian">Italiano</string>
     <string name="english">English</string>
     <string name="language_settings_description">Choose the language used in the app.</string>
+    <string name="privacy_policy">Privacy policy</string>
+    <string name="privacy_policy_url">https://github.com/scazzumvivendi/seento/blob/main/PRIVACY_POLICY.md</string>
     <string name="new_playlist">New playlist</string>
     <string name="create">Create</string>
     <string name="loading_playlists">Loading playlists…</string>

@@ -8,6 +8,8 @@
     <string name="italian">Italiano</string>
     <string name="english">English</string>
     <string name="language_settings_description">Scegli la lingua dell’app.</string>
+    <string name="privacy_policy">Informativa sulla privacy</string>
+    <string name="privacy_policy_url">https://github.com/scazzumvivendi/seento/blob/main/PRIVACY_POLICY.md</string>
     <string name="new_playlist">Nuova playlist</string>
     <string name="create">Crea</string>
     <string name="loading_playlists">Caricamento playlist…</string>

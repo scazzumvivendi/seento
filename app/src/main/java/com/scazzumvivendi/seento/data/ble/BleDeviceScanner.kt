@@ -22,9 +22,7 @@ class BleDeviceScanner(context: Context) {
     private fun localizedString(id: Int, value: String): String =
         ContextCompat.getContextForLanguage(appContext).getString(id, value)
 
-    private val mdsServiceUuid = ParcelUuid.fromString(
-        "61353090-8231-49cc-b57a-886370740041"
-    )
+    private val mdsServiceUuid = ParcelUuid(MdsBleUuids.SERVICE)
 
     private val bluetoothManager = context
         .getSystemService(BluetoothManager::class.java)

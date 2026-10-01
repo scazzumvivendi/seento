@@ -26,7 +26,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.Closeable
 import java.util.ArrayDeque
-import java.util.UUID
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -110,9 +109,9 @@ internal class NgbBleSession(context: Context) : Closeable {
                 fail(IllegalStateException("Ricerca servizi GATT fallita (status=$status)"))
                 return
             }
-            val service = bluetoothGatt.getService(MDS_SERVICE_UUID)
-            writeCharacteristic = service?.getCharacteristic(MDS_WRITE_UUID)
-            notifyCharacteristic = service?.getCharacteristic(MDS_NOTIFY_UUID)
+            val service = bluetoothGatt.getService(MdsBleUuids.SERVICE)
+            writeCharacteristic = service?.getCharacteristic(MdsBleUuids.WRITE_CHARACTERISTIC)
+            notifyCharacteristic = service?.getCharacteristic(MdsBleUuids.NOTIFY_CHARACTERISTIC)
             val notify = notifyCharacteristic
             if (service == null || writeCharacteristic == null || notify == null) {
                 fail(IllegalStateException("Servizio MDS BLE incompleto sul dispositivo"))
@@ -138,7 +137,7 @@ internal class NgbBleSession(context: Context) : Closeable {
                 fail(IllegalStateException("Impossibile abilitare le notifiche MDS"))
                 return
             }
-            val descriptor = notify.getDescriptor(CCCD_UUID)
+            val descriptor = notify.getDescriptor(MdsBleUuids.CLIENT_CHARACTERISTIC_CONFIG)
             if (descriptor == null || !writeCccd(bluetoothGatt, descriptor)) {
                 fail(IllegalStateException("Impossibile avviare le notifiche MDS"))
             }
@@ -150,7 +149,7 @@ internal class NgbBleSession(context: Context) : Closeable {
             status: Int
         ) {
             if (bluetoothGatt !== gatt || closed) return
-            if (descriptor.uuid != CCCD_UUID || status != BluetoothGatt.GATT_SUCCESS) {
+            if (descriptor.uuid != MdsBleUuids.CLIENT_CHARACTERISTIC_CONFIG || status != BluetoothGatt.GATT_SUCCESS) {
                 fail(IllegalStateException("Attivazione notifiche MDS fallita (status=$status)"))
                 return
             }
@@ -173,7 +172,7 @@ internal class NgbBleSession(context: Context) : Closeable {
             characteristic: BluetoothGattCharacteristic,
             status: Int
         ) {
-            if (bluetoothGatt === gatt && characteristic.uuid == MDS_WRITE_UUID && !closed) {
+            if (bluetoothGatt === gatt && characteristic.uuid == MdsBleUuids.WRITE_CHARACTERISTIC && !closed) {
                 onWriteCompleted(status == BluetoothGatt.GATT_SUCCESS)
             }
         }
@@ -184,7 +183,7 @@ internal class NgbBleSession(context: Context) : Closeable {
             bluetoothGatt: BluetoothGatt,
             characteristic: BluetoothGattCharacteristic
         ) {
-            if (bluetoothGatt === gatt && characteristic.uuid == MDS_NOTIFY_UUID) {
+            if (bluetoothGatt === gatt && characteristic.uuid == MdsBleUuids.NOTIFY_CHARACTERISTIC) {
                 characteristic.value?.let(::onNotification)
             }
         }
@@ -194,7 +193,7 @@ internal class NgbBleSession(context: Context) : Closeable {
             characteristic: BluetoothGattCharacteristic,
             value: ByteArray
         ) {
-            if (bluetoothGatt === gatt && characteristic.uuid == MDS_NOTIFY_UUID) {
+            if (bluetoothGatt === gatt && characteristic.uuid == MdsBleUuids.NOTIFY_CHARACTERISTIC) {
                 onNotification(value)
             }
         }
@@ -389,9 +388,5 @@ internal class NgbBleSession(context: Context) : Closeable {
         const val WHITEBOARD_ADDRESS = WB_ADDRESS
         const val DEFAULT_WB_HANDLE = 0x10000001
         const val MAX_BLE_WRITE_BYTES = 20
-        val MDS_SERVICE_UUID: UUID = UUID.fromString("61353090-8231-49cc-b57a-886370740041")
-        val MDS_WRITE_UUID: UUID = UUID.fromString("17816557-5652-417f-909f-3aee61e5fa85")
-        val MDS_NOTIFY_UUID: UUID = UUID.fromString("34802252-7185-4d5d-b431-630e7050e8f0")
-        val CCCD_UUID: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
     }
 }
