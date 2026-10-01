@@ -23,7 +23,8 @@ data class CatalogReadProgress(
 data class RemotePlaylist(
     val id: Long,
     val name: String,
-    val songKeys: List<Long>
+    val songKeys: List<Long>,
+    val sortId: Int = -1
 )
 
 data class RemoteMusicTrack(

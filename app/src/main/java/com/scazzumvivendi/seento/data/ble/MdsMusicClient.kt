@@ -283,6 +283,13 @@ class MdsMusicClient(context: Context) : Closeable {
         throw lastError ?: IllegalStateException("Lettura MDS fallita: $uri")
     }
 
+    suspend fun readPlaylists(
+        onProgress: (CatalogReadProgress) -> Unit = {}
+    ): List<RemotePlaylist> {
+        val serial = connectedSerial ?: error("Dispositivo non connesso")
+        return readPlaylists(serial, onProgress)
+    }
+
     private suspend fun readPlaylists(
         serial: String,
         onProgress: (CatalogReadProgress) -> Unit
@@ -342,7 +349,14 @@ class MdsMusicClient(context: Context) : Closeable {
                         }
                     }
                 }
-                add(RemotePlaylist(id = id, name = name, songKeys = songs))
+                add(
+                    RemotePlaylist(
+                        id = id,
+                        name = name,
+                        songKeys = songs,
+                        sortId = item.optInt("sortId", -1)
+                    )
+                )
                 onProgress(
                     CatalogReadProgress(
                         phase = CatalogReadPhase.READING_PLAYLISTS,
@@ -355,18 +369,19 @@ class MdsMusicClient(context: Context) : Closeable {
     }
 
     suspend fun writePlaylist(
-        remotePlaylistId: Long?,
+        playlistId: Long,
+        sortId: Int,
+        isUpdate: Boolean,
         playlistName: String,
         songKeys: List<Long>
     ): Long {
         val serial = connectedSerial
             ?: error("Dispositivo non connesso")
-        val playlistId = remotePlaylistId ?: (System.currentTimeMillis() / 1_000L)
 
         val payload = JSONObject().put(
             "playList",
             JSONObject()
-                .put("sortId", 4)
+                .put("sortId", sortId)
                 .put("playListId", playlistId)
                 .put("musicNum", songKeys.size)
                 .put("playListName", playlistName)
@@ -388,8 +403,13 @@ class MdsMusicClient(context: Context) : Closeable {
             )
         )
 
-        val operation = if (remotePlaylistId == null) "List/add" else "List"
-        put("suunto://$serial/offline/music/$operation", contract.toString())
+        val operation = if (isUpdate) "List" else "List/add"
+        val uri = "suunto://$serial/offline/music/$operation"
+        Log.i(
+            TAG,
+            "Writing playlist: uri=$uri isUpdate=$isUpdate id=$playlistId sortId=$sortId name=$playlistName keys=$songKeys"
+        )
+        put(uri, contract.toString())
         return playlistId
     }
 
@@ -397,8 +417,10 @@ class MdsMusicClient(context: Context) : Closeable {
         val serial = connectedSerial
             ?: error("Dispositivo non connesso")
 
-        delete(
-            uri = "suunto://$serial/offline/music/List",
+        // The watch exposes playlist deletion as a List/delete command. A DELETE
+        // on the List resource itself has no MDS metadata and returns 404.
+        put(
+            uri = "suunto://$serial/offline/music/List/delete",
             contract = JSONObject().put("playListId", remotePlaylistId).toString()
         )
     }
@@ -428,6 +450,7 @@ class MdsMusicClient(context: Context) : Closeable {
                 }
 
                 override fun onError(error: MdsException) {
+                    Log.e(TAG, "PUT failed: uri=$uri contract=$contract message=${error.message}", error)
                     if (continuation.isActive) {
                         continuation.resumeWithException(error)
                     }
@@ -446,23 +469,6 @@ class MdsMusicClient(context: Context) : Closeable {
                 override fun onError(error: MdsException) {
                     Log.e(TAG, "POST failed: $uri", error)
                     if (continuation.isActive) continuation.resumeWithException(error)
-                }
-            })
-        }
-
-    private suspend fun delete(uri: String, contract: String?): String =
-        suspendCancellableCoroutine { continuation ->
-            mds.delete(uri, contract, object : MdsResponseListener {
-                override fun onSuccess(data: String) {
-                    Log.d(TAG, "DELETE succeeded: $uri")
-                    if (continuation.isActive) continuation.resume(data)
-                }
-
-                override fun onError(error: MdsException) {
-                    Log.e(TAG, "DELETE failed: $uri", error)
-                    if (continuation.isActive) {
-                        continuation.resumeWithException(error)
-                    }
                 }
             })
         }

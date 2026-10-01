@@ -1,7 +1,6 @@
 package com.scazzumvivendi.seento.data.ble
 
 import android.annotation.SuppressLint
-import android.bluetooth.BluetoothGattConnectionSettings
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
@@ -65,21 +64,16 @@ internal class NgbBleSession(context: Context) : Closeable {
                     ?: error("BluetoothManager non disponibile")
                 val device = manager.adapter?.getRemoteDevice(address)
                     ?: error("Adattatore Bluetooth non disponibile")
-                gatt = if (Build.VERSION.SDK_INT >= 37) {
-                    val settings = BluetoothGattConnectionSettings.Builder()
-                        .setAutoConnectEnabled(false)
-                        .setTransport(BluetoothDevice.TRANSPORT_LE)
-                        .build()
-                    device.connectGatt(settings, appContext.mainExecutor, gattCallback)
-                } else {
-                    @Suppress("DEPRECATION")
-                    device.connectGatt(
-                        appContext,
-                        false,
-                        gattCallback,
-                        BluetoothDevice.TRANSPORT_LE
-                    )
-                } ?: error("Impossibile avviare la connessione GATT")
+                // BluetoothGattConnectionSettings was introduced after Android 15.
+                // Referencing it directly crashes on older Android releases even
+                // when guarded by an SDK check on some vendor runtimes.
+                @Suppress("DEPRECATION")
+                gatt = device.connectGatt(
+                    appContext,
+                    false,
+                    gattCallback,
+                    BluetoothDevice.TRANSPORT_LE
+                ) ?: error("Impossibile avviare la connessione GATT")
             } catch (error: Exception) {
                 continuation.resumeWithException(error)
             }

@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -64,11 +63,8 @@ fun DeviceTracksScreen(state: WearableUiState, onHomeClick: () -> Unit, onDevice
         Text(stringResource(R.string.tracks_list), style = MaterialTheme.typography.headlineMedium)
         if (state.connectionStatus != MdsConnectionStatus.CONNECTED) {
             Text(stringResource(R.string.connect_device_to_read_tracks), modifier = Modifier.padding(top = 16.dp))
-        } else if (state.isLoadingMusic) {
-            CircularProgressIndicator(modifier = Modifier.padding(top = 24.dp))
-            Text(stringResource(R.string.reading_catalog), modifier = Modifier.padding(top = 12.dp))
         } else {
-            LazyColumn {
+            if (!state.isLoadingMusic) LazyColumn {
                 item { Text(pluralStringResource(R.plurals.track_count, state.tracks.size, state.tracks.size), style = MaterialTheme.typography.titleMedium) }
                 items(state.tracks, key = { "track-${it.key}" }) { track ->
                     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {

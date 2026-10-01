@@ -17,6 +17,13 @@ val mdslibAarPath = providers.gradleProperty("mdslibAar")
     .orElse(envValues.getProperty("MDSLIB_AAR") ?: "")
 val mdslibAar = mdslibAarPath.map { rootProject.file(it) }
 
+// Keep upload-key credentials out of source control. See README.md for the
+// local signing.properties format used to produce Play-uploadable bundles.
+val signingFile = rootProject.file("signing.properties")
+val signingValues = Properties().apply {
+    if (signingFile.isFile) signingFile.inputStream().use(::load)
+}
+
 check(mdslibAarPath.get().isNotBlank()) {
     "MDS SDK missing. Set MDSLIB_AAR in the root .env or pass " +
         "-PmdslibAar=/absolute/path/to/mdslib-3.33.7-release.aar"
@@ -37,7 +44,7 @@ android {
         minSdk = 24
         targetSdk = 37
         versionCode = 1
-        versionName = "1.0"
+        versionName = "0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -46,6 +53,14 @@ android {
         release {
             optimization {
                 enable = false
+            }
+            if (signingFile.isFile) {
+                signingConfig = signingConfigs.create("releaseUpload").apply {
+                    storeFile = rootProject.file(signingValues.getProperty("storeFile"))
+                    storePassword = signingValues.getProperty("storePassword")
+                    keyAlias = signingValues.getProperty("keyAlias")
+                    keyPassword = signingValues.getProperty("keyPassword")
+                }
             }
         }
     }

@@ -6,7 +6,7 @@ import com.scazzumvivendi.seento.data.ble.BleDeviceScanner
 import com.scazzumvivendi.seento.data.ble.MdsConnectionStatus
 import com.scazzumvivendi.seento.data.ble.MdsMusicClient
 import com.scazzumvivendi.seento.data.ble.PlaylistDeviceMatcher
-import com.scazzumvivendi.seento.data.ble.model.RemotePlaylist
+import com.scazzumvivendi.seento.data.ble.model.CatalogReadPhase
 import com.scazzumvivendi.seento.domain.model.Playlist
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +21,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import android.content.SharedPreferences
 import android.content.Context
+import java.util.TimeZone
+import android.util.Log
 import androidx.core.content.ContextCompat
 import com.scazzumvivendi.seento.R
 
@@ -73,6 +75,8 @@ class WearableViewModel(
     private var disconnectFeedbackJob: Job? = null
     private var pendingPlaylistName: String? = null
     private var pendingPlaylistId: Long? = null
+    private var pendingPlaylistSongKeys: List<Long>? = null
+    private var pendingRemoteIdAssigned: ((Long) -> Unit)? = null
 
     init {
         mdsClient.onConnectedDeviceRemoved = {
@@ -124,6 +128,7 @@ class WearableViewModel(
 
     fun startScan() {
         scanTimeoutJob?.cancel()
+        feedbackEvents.trySend(text(R.string.searching_devices))
         _uiState.update { it.copy(isScanning = true, errorMessage = null) }
         scanner.start()
         scanTimeoutJob = viewModelScope.launch {
@@ -161,6 +166,17 @@ class WearableViewModel(
             .firstOrNull { it.address.equals(address, ignoreCase = true) }
             ?.name
             ?.let { serialHintFromName(it) }
+            ?: _uiState.value.lastDeviceName
+                ?.takeIf {
+                    preferences.getString(KEY_LAST_ADDRESS, null)
+                        ?.equals(address, ignoreCase = true) == true
+                }
+                ?.let(::serialHintFromName)
+            ?: preferences.getString(KEY_LAST_SERIAL, null)
+                ?.takeIf {
+                    preferences.getString(KEY_LAST_ADDRESS, null)
+                        ?.equals(address, ignoreCase = true) == true
+                }
         _uiState.update {
             it.copy(
                 connectionStatus = MdsConnectionStatus.CONNECTING,
@@ -171,6 +187,7 @@ class WearableViewModel(
                 isDeviceDataLoaded = false
             )
         }
+        feedbackEvents.trySend(text(R.string.connecting))
 
         viewModelScope.launch {
             try {
@@ -196,6 +213,7 @@ class WearableViewModel(
                 preferences.edit()
                     .putString(KEY_LAST_ADDRESS, address)
                     .putString(KEY_LAST_NAME, deviceName)
+                    .putString(KEY_LAST_SERIAL, serial)
                     .apply()
                 loadMusic()
             } catch (exception: Exception) {
@@ -213,8 +231,13 @@ class WearableViewModel(
 
     private companion object {
         const val CONNECTION_TIMEOUT_MS = 20_000L
+        // When the device catalog has no readable sortId, use the reserved
+        // built-in baseline (0) plus the same gap as every new playlist.
+        const val BUILT_IN_PLAYLIST_SORT_ID = 0
+        const val NEW_PLAYLIST_SORT_ID_GAP = 1
         const val KEY_LAST_ADDRESS = "last_device_address"
         const val KEY_LAST_NAME = "last_device_name"
+        const val KEY_LAST_SERIAL = "last_device_serial"
 
         private val SERIAL_IN_DEVICE_NAME = Regex("(?i)(?<![0-9a-z])[0-9a-z]{8,}(?![0-9a-z])")
 
@@ -232,7 +255,9 @@ class WearableViewModel(
         writeJob?.cancel()
         disconnectJob?.cancel()
         disconnectFeedbackJob?.cancel()
-        preferences.edit().remove(KEY_LAST_NAME).apply()
+        preferences.edit().remove(KEY_LAST_NAME).remove(KEY_LAST_ADDRESS)
+            .remove(KEY_LAST_SERIAL).apply()
+        feedbackEvents.trySend(text(R.string.disconnecting))
         _uiState.update {
             it.copy(
                 connectionStatus = MdsConnectionStatus.DISCONNECTING,
@@ -261,6 +286,7 @@ class WearableViewModel(
                         connectionStatus = MdsConnectionStatus.DISCONNECTED,
                         connectedSerial = null,
                         isWritingPlaylist = false,
+                        lastDeviceAddress = null,
                         lastDeviceName = null,
                         successMessage = if (it.errorMessage == null) {
                             text(R.string.device_disconnected)
@@ -284,12 +310,14 @@ class WearableViewModel(
         disconnectFeedbackJob?.cancel()
         pendingPlaylistName = null
         pendingPlaylistId = null
-        preferences.edit().remove(KEY_LAST_NAME).apply()
+        preferences.edit().remove(KEY_LAST_NAME).remove(KEY_LAST_ADDRESS)
+            .remove(KEY_LAST_SERIAL).apply()
         mdsClient.close()
         _uiState.update {
             it.copy(
                 connectionStatus = MdsConnectionStatus.DISCONNECTED,
                 connectedSerial = null,
+                lastDeviceAddress = null,
                 lastDeviceName = null,
                 tracks = emptyList(),
                 remotePlaylists = emptyList(),
@@ -330,40 +358,66 @@ class WearableViewModel(
         }
         catalogJob = viewModelScope.launch {
             try {
-                val catalog = mdsClient.readCatalog { progress ->
-                    _uiState.update { it.copy(catalogProgress = progress) }
-                }
+                var lastToastPhase: CatalogReadPhase? = null
                 val expectedName = pendingPlaylistName
                 val expectedId = pendingPlaylistId
+                val expectedSongKeys = pendingPlaylistSongKeys
+                val refreshedCatalog = mdsClient.readCatalog { progress ->
+                    _uiState.update { it.copy(catalogProgress = progress) }
+                    if (progress.phase != lastToastPhase) {
+                        lastToastPhase = progress.phase
+                        when (progress.phase) {
+                            CatalogReadPhase.READING_SONGS ->
+                                feedbackEvents.trySend(text(R.string.downloading_tracks))
+                            CatalogReadPhase.READING_PLAYLISTS ->
+                                feedbackEvents.trySend(text(R.string.downloading_playlists))
+                            CatalogReadPhase.PREPARING -> Unit
+                        }
+                    }
+                }
+                val confirmedPlaylist = refreshedCatalog.playlists.firstOrNull {
+                    it.id == expectedId
+                }
+                val playlistConfirmed = expectedName == null && expectedId == null ||
+                    confirmedPlaylist != null &&
+                    (expectedSongKeys == null || confirmedPlaylist.songKeys == expectedSongKeys)
+                if (playlistConfirmed) {
+                    expectedId?.let { pendingRemoteIdAssigned?.invoke(it) }
+                }
                 pendingPlaylistName = null
                 pendingPlaylistId = null
+                pendingPlaylistSongKeys = null
+                pendingRemoteIdAssigned = null
                 _uiState.update {
-                    val playlistConfirmed = (expectedName != null || expectedId != null) &&
-                        catalog.playlists.any { remote ->
-                            remote.id == expectedId ||
-                                (expectedName != null &&
-                                    remote.name.trim().equals(expectedName.trim(), ignoreCase = true))
-                        }
                     it.copy(
                         isLoadingMusic = false,
+                        isWritingPlaylist = if (expectedName != null || expectedId != null) {
+                            false
+                        } else it.isWritingPlaylist,
                         catalogProgress = null,
                         isDeviceDataLoaded = true,
-                        tracks = catalog.tracks,
-                        remotePlaylists = catalog.playlists,
-                        playlistReadWarning = catalog.playlistReadWarning,
+                        tracks = refreshedCatalog.tracks,
+                        remotePlaylists = refreshedCatalog.playlists,
+                        playlistReadWarning = refreshedCatalog.playlistReadWarning,
                         successMessage = when {
                             expectedName == null && expectedId == null -> it.successMessage
                             playlistConfirmed -> text(R.string.playlist_sent_confirmed)
-                            else -> text(R.string.playlist_sent_refreshing)
-                        }
+                            else -> null
+                        },
+                        errorMessage = it.errorMessage
                     )
                 }
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {
+                pendingPlaylistName = null
+                pendingPlaylistId = null
+                pendingPlaylistSongKeys = null
+                pendingRemoteIdAssigned = null
                 _uiState.update {
                     it.copy(
                         isLoadingMusic = false,
+                        isWritingPlaylist = false,
                         catalogProgress = null,
                         playlistReadWarning = null,
                             successMessage = null,
@@ -381,7 +435,8 @@ class WearableViewModel(
     ) {
         val remoteTracks = _uiState.value.tracks
         if (_uiState.value.connectionStatus != MdsConnectionStatus.CONNECTED ||
-            remoteTracks.isEmpty() || _uiState.value.isWritingPlaylist
+            remoteTracks.isEmpty() || _uiState.value.isWritingPlaylist ||
+            _uiState.value.isLoadingMusic
         ) return
 
         val keys = PlaylistDeviceMatcher.resolveKeys(playlist, remoteTracks)
@@ -395,17 +450,6 @@ class WearableViewModel(
             return
         }
 
-        val matchingRemotePlaylists = _uiState.value.remotePlaylists.filter {
-            it.name.trim().equals(playlist.name.trim(), ignoreCase = true)
-        }
-        if (playlist.remotePlaylistId == null && matchingRemotePlaylists.size > 1) {
-            _uiState.update {
-                it.copy(errorMessage = text(R.string.duplicate_device_playlists))
-            }
-            return
-        }
-        val targetRemoteId = playlist.remotePlaylistId ?: matchingRemotePlaylists.singleOrNull()?.id
-
         feedbackEvents.trySend(text(R.string.sending_playlist))
 
         _uiState.update {
@@ -417,34 +461,76 @@ class WearableViewModel(
         }
         writeJob = viewModelScope.launch {
             pendingPlaylistName = playlist.name
+            pendingPlaylistSongKeys = keys
+            pendingRemoteIdAssigned = onRemoteIdAssigned
             try {
+                // Decide insert vs update from a fresh device read, not from
+                // the possibly stale catalog that was already on screen.
+                val remotePlaylists = mdsClient.readPlaylists()
+                _uiState.update { it.copy(remotePlaylists = remotePlaylists) }
+
+                val matchingRemotePlaylists = remotePlaylists.filter {
+                    it.name.trim().equals(playlist.name.trim(), ignoreCase = true)
+                }
+                val existingRemoteId = playlist.remotePlaylistId?.takeIf { id ->
+                    remotePlaylists.any { it.id == id }
+                }
+                if (existingRemoteId == null && matchingRemotePlaylists.size > 1) {
+                    pendingPlaylistName = null
+                    pendingPlaylistSongKeys = null
+                    pendingRemoteIdAssigned = null
+                    _uiState.update {
+                        it.copy(
+                            isWritingPlaylist = false,
+                            errorMessage = text(R.string.duplicate_device_playlists)
+                        )
+                    }
+                    return@launch
+                }
+                val targetRemoteId = existingRemoteId
+                    ?: matchingRemotePlaylists.singleOrNull()?.id
+                val isUpdate = targetRemoteId != null
+                val existingSortId = targetRemoteId?.let { id ->
+                    remotePlaylists.firstOrNull { it.id == id }?.sortId
+                }?.takeIf { it >= 0 }
+                val highestDeviceSortId = remotePlaylists.map { it.sortId }
+                    .filter { it >= 0 }
+                    .maxOrNull()
+                val serial = _uiState.value.connectedSerial
+                    ?: error("Dispositivo non connesso")
+                val sortId = existingSortId ?: Math.addExact(
+                    highestDeviceSortId ?: BUILT_IN_PLAYLIST_SORT_ID,
+                    NEW_PLAYLIST_SORT_ID_GAP
+                )
+                Log.i(
+                    "WearableViewModel",
+                    "Playlist sortId allocation: serial=$serial deviceMax=$highestDeviceSortId " +
+                        "assigned=$sortId isUpdate=$isUpdate"
+                )
+                val playlistId = targetRemoteId ?: run {
+                    // Suunto uses the local wall-clock fields as if they were UTC.
+                    val now = System.currentTimeMillis()
+                    var newId = now / 1_000L +
+                        TimeZone.getDefault().getOffset(now) / 1_000L
+                    while (remotePlaylists.any { it.id == newId }) newId++
+                    newId
+                }
                 val savedRemoteId = mdsClient.writePlaylist(
-                    remotePlaylistId = targetRemoteId,
+                    playlistId = playlistId,
+                    sortId = sortId,
+                    isUpdate = isUpdate,
                     playlistName = playlist.name,
                     songKeys = keys
                 )
                 pendingPlaylistId = savedRemoteId
-                onRemoteIdAssigned(savedRemoteId)
-                _uiState.update { current ->
-                    val written = RemotePlaylist(
-                        id = savedRemoteId,
-                        name = playlist.name,
-                        songKeys = keys
-                    )
-                    val existing = current.remotePlaylists
-                        .filterNot { it.id == savedRemoteId || it.id == targetRemoteId }
-                    current.copy(
-                        isWritingPlaylist = false,
-                        remotePlaylists = existing + written,
-                        successMessage = text(R.string.playlist_sent_updating)
-                    )
-                }
-                // La risposta della PUT conferma la richiesta, non la lista
-                // effettivamente esposta dal dispositivo: rileggiamola subito.
-                delay(750)
+                // The PUT acknowledgement is not device state. Keep rendering
+                // the last catalog until MDS returns the exact playlist and keys.
                 loadMusic()
             } catch (exception: Exception) {
                 pendingPlaylistName = null
+                pendingPlaylistId = null
+                pendingPlaylistSongKeys = null
+                pendingRemoteIdAssigned = null
                 _uiState.update {
                     it.copy(
                         isWritingPlaylist = false,

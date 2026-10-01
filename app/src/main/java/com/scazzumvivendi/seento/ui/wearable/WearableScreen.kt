@@ -17,7 +17,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledIconButton
@@ -51,7 +50,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
 import com.scazzumvivendi.seento.R
 import com.scazzumvivendi.seento.data.ble.MdsConnectionStatus
-import com.scazzumvivendi.seento.data.ble.model.CatalogReadPhase
 import com.scazzumvivendi.seento.data.ble.model.RemotePlaylist
 import com.scazzumvivendi.seento.domain.model.Playlist
 import com.scazzumvivendi.seento.ui.theme.SeentoRed
@@ -107,7 +105,11 @@ fun WearableScreen(
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
         ) {
             Text(
-                text = state.lastDeviceName ?: stringResource(R.string.device),
+                text = if (state.connectionStatus == MdsConnectionStatus.CONNECTED) {
+                    state.lastDeviceName ?: stringResource(R.string.device)
+                } else {
+                    stringResource(R.string.device)
+                },
                 style = MaterialTheme.typography.headlineMedium,
                 modifier = Modifier.weight(1f)
             )
@@ -204,13 +206,6 @@ fun WearableScreen(
                 items(otherDevices, key = { it.address }) { device ->
                     DeviceRow(device, state, onConnect)
                 }
-            }
-
-            if ((state.connectionStatus == MdsConnectionStatus.DISCONNECTED ||
-                    state.connectionStatus == MdsConnectionStatus.FAILED) &&
-                state.devices.isEmpty() && state.isScanning
-            ) {
-                item { Text(stringResource(R.string.searching_devices)) }
             }
 
             if ((state.connectionStatus == MdsConnectionStatus.DISCONNECTED ||
@@ -342,57 +337,6 @@ fun WearableScreen(
                 }
             }
 
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp)
-        ) {
-            if (state.isLoadingMusic) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp
-                    )
-                    Column(modifier = Modifier.padding(start = 8.dp)) {
-                        Text(
-                            when (state.catalogProgress?.phase) {
-                                CatalogReadPhase.READING_SONGS -> stringResource(R.string.downloading_tracks)
-                                CatalogReadPhase.READING_PLAYLISTS -> stringResource(R.string.downloading_playlists)
-                                CatalogReadPhase.PREPARING -> stringResource(R.string.preparing_catalog)
-                                null -> stringResource(R.string.downloading_catalog)
-                            }
-                        )
-                        state.catalogProgress?.let { progress ->
-                            if (progress.total > 0) {
-                                Text(
-                                    "${progress.completed}/${progress.total}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            when (state.connectionStatus) {
-                MdsConnectionStatus.CONNECTING,
-                MdsConnectionStatus.DISCONNECTING -> Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                    Text(
-                        text = if (state.connectionStatus == MdsConnectionStatus.CONNECTING) {
-                            stringResource(R.string.connecting)
-                        } else {
-                            stringResource(R.string.disconnecting)
-                        },
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
-                }
-                else -> Unit
-            }
         }
 
         }

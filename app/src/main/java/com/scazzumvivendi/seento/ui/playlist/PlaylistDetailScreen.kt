@@ -184,11 +184,6 @@ fun PlaylistDetailScreen(
             )
         }
 
-        if (isSendingPlaylist) {
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
-            Text(stringResource(R.string.sending_playlist), modifier = Modifier.padding(top = 8.dp))
-        }
-
         Text(
             text = pluralStringResource(R.plurals.track_count, playlist.tracks.size, playlist.tracks.size),
             modifier = Modifier.padding(top = 8.dp)

@@ -410,7 +410,23 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        startBluetoothScan()
+        val lastAddress = wearableViewModel.uiState.value.lastDeviceAddress
+        if (lastAddress.isNullOrBlank()) {
+            startBluetoothScan()
+        } else {
+            connectToLastDevice(lastAddress)
+        }
+    }
+
+    private fun connectToLastDevice(address: String) {
+        val missingPermissions = requiredBluetoothPermissions()
+            .filterNot { checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }
+        if (missingPermissions.isEmpty()) {
+            wearableViewModel.connect(address)
+        } else {
+            pendingScan = { wearableViewModel.connect(address) }
+            bluetoothPermissionLauncher.launch(missingPermissions.toTypedArray())
+        }
     }
 
     private fun startBluetoothScan() {
