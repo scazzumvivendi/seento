@@ -84,6 +84,7 @@
     <string name="disconnect_error">Errore durante la disconnessione</string>
     <string name="device_disconnected">Dispositivo disconnesso</string>
     <string name="playlist_sent_confirmed">Playlist inviata e presente sul dispositivo.</string>
+    <string name="playlist_write_not_confirmed">Il dispositivo ha accettato il comando, ma la playlist salvata non corrisponde. Aggiorna il catalogo e riprova.</string>
     <string name="playlist_sent_refreshing">Playlist inviata. Il dispositivo sta aggiornando il catalogo.</string>
     <string name="cannot_read_music_catalog">Impossibile leggere il catalogo musicale</string>
     <string name="tracks_missing_from_device">Una o più tracce non sono presenti nel dispositivo</string>

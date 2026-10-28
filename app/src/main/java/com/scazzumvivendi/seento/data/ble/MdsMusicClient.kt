@@ -27,6 +27,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.Closeable
@@ -325,12 +326,7 @@ class MdsMusicClient(context: Context) : Closeable {
                     "playListName", "playlistName", "name"
                 ) ?: ContextCompat.getContextForLanguage(appContext)
                     .getString(R.string.unnamed_device_playlist, id)
-                if (!WatchPlaylistPolicy.isUserPlaylist(
-                        id = id,
-                        name = name,
-                        sortId = item.optInt("sortId", -1)
-                    )
-                ) continue
+                if (!WatchPlaylistPolicy.isUserPlaylist(name)) continue
                 val detailBody = getWithTransientRetry(
                     uri = "suunto://$serial/offline/music/customerList",
                     contract = JSONObject().put("playListId", id).toString()
@@ -370,7 +366,6 @@ class MdsMusicClient(context: Context) : Closeable {
 
     suspend fun writePlaylist(
         playlistId: Long,
-        sortId: Int,
         isUpdate: Boolean,
         playlistName: String,
         songKeys: List<Long>
@@ -381,7 +376,6 @@ class MdsMusicClient(context: Context) : Closeable {
         val payload = JSONObject().put(
             "playList",
             JSONObject()
-                .put("sortId", sortId)
                 .put("playListId", playlistId)
                 .put("musicNum", songKeys.size)
                 .put("playListName", playlistName)
@@ -399,7 +393,10 @@ class MdsMusicClient(context: Context) : Closeable {
             "value",
             Base64.encodeToString(
                 payload.toString().toByteArray(Charsets.UTF_8),
-                Base64.NO_WRAP
+                // MDS includes spurious trailing bytes when decoding padded
+                // Base64 values. Match Suunto's unpadded encoding so the watch
+                // receives exactly the JSON bytes, regardless of payload length.
+                Base64.NO_WRAP or Base64.NO_PADDING
             )
         )
 
@@ -407,9 +404,18 @@ class MdsMusicClient(context: Context) : Closeable {
         val uri = "suunto://$serial/offline/music/$operation"
         Log.i(
             TAG,
-            "Writing playlist: uri=$uri isUpdate=$isUpdate id=$playlistId sortId=$sortId name=$playlistName keys=$songKeys"
+            "Writing playlist: uri=$uri isUpdate=$isUpdate id=$playlistId name=$playlistName keys=$songKeys"
         )
         put(uri, contract.toString())
+        val confirmed = withTimeoutOrNull(20_000L) {
+            PlaylistWriteVerification.confirm(playlistId, playlistName, songKeys) {
+                readPlaylists()
+            }
+        }
+        check(confirmed == true) {
+            ContextCompat.getContextForLanguage(appContext)
+                .getString(R.string.playlist_write_not_confirmed)
+        }
         return playlistId
     }
 
@@ -430,6 +436,10 @@ class MdsMusicClient(context: Context) : Closeable {
             mds.get(uri, contract, object : MdsResponseListener {
                 override fun onSuccess(data: String) {
                     Log.d(TAG, "GET succeeded: $uri")
+                    if (uri.endsWith("/playLists") || uri.endsWith("/customerList") ||
+                        uri.endsWith("/version")) {
+                        Log.d(TAG, "Music response: uri=$uri contract=$contract response=$data")
+                    }
                     if (continuation.isActive) continuation.resume(data)
                 }
 
@@ -446,6 +456,7 @@ class MdsMusicClient(context: Context) : Closeable {
         suspendCancellableCoroutine { continuation ->
             mds.put(uri, contract, object : MdsResponseListener {
                 override fun onSuccess(data: String) {
+                    Log.i(TAG, "PUT acknowledged: uri=$uri response=$data")
                     if (continuation.isActive) continuation.resume(data)
                 }
 

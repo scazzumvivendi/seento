@@ -83,6 +83,7 @@
     <string name="disconnect_error">Error while disconnecting</string>
     <string name="device_disconnected">Device disconnected</string>
     <string name="playlist_sent_confirmed">Playlist sent and available on the device.</string>
+    <string name="playlist_write_not_confirmed">The device acknowledged the command, but the saved playlist does not match. Refresh the catalog and try again.</string>
     <string name="playlist_sent_refreshing">Playlist sent. The device is updating its catalog.</string>
     <string name="cannot_read_music_catalog">Unable to read the music catalog</string>
     <string name="tracks_missing_from_device">One or more tracks are not available on the device</string>

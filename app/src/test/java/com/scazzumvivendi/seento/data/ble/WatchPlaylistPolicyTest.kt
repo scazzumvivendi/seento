@@ -8,12 +8,14 @@ class WatchPlaylistPolicyTest {
 
     @Test
     fun `all songs system list is not imported as a playlist`() {
-        assertFalse(WatchPlaylistPolicy.isUserPlaylist(65_535L, "All songs", 0))
-        assertFalse(WatchPlaylistPolicy.isUserPlaylist(12L, "all songs", 0))
+        assertFalse(WatchPlaylistPolicy.isUserPlaylist("All songs"))
+        assertFalse(WatchPlaylistPolicy.isUserPlaylist("all songs"))
+        assertFalse(WatchPlaylistPolicy.isUserPlaylist("ALL SONGS"))
     }
 
     @Test
     fun `named device playlists remain importable`() {
-        assertTrue(WatchPlaylistPolicy.isUserPlaylist(17L, "Running", 4))
+        assertTrue(WatchPlaylistPolicy.isUserPlaylist("Running"))
+        assertTrue(WatchPlaylistPolicy.isUserPlaylist("Paolo Brosio"))
     }
 }

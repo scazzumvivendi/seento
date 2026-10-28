@@ -22,7 +22,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 import android.content.SharedPreferences
 import android.content.Context
 import java.util.TimeZone
-import android.util.Log
 import androidx.core.content.ContextCompat
 import com.scazzumvivendi.seento.R
 
@@ -231,10 +230,6 @@ class WearableViewModel(
 
     private companion object {
         const val CONNECTION_TIMEOUT_MS = 20_000L
-        // When the device catalog has no readable sortId, use the reserved
-        // built-in baseline (0) plus the same gap as every new playlist.
-        const val BUILT_IN_PLAYLIST_SORT_ID = 0
-        const val NEW_PLAYLIST_SORT_ID_GAP = 1
         const val KEY_LAST_ADDRESS = "last_device_address"
         const val KEY_LAST_NAME = "last_device_name"
         const val KEY_LAST_SERIAL = "last_device_serial"
@@ -380,6 +375,7 @@ class WearableViewModel(
                 }
                 val playlistConfirmed = expectedName == null && expectedId == null ||
                     confirmedPlaylist != null &&
+                    confirmedPlaylist.name == expectedName &&
                     (expectedSongKeys == null || confirmedPlaylist.songKeys == expectedSongKeys)
                 if (playlistConfirmed) {
                     expectedId?.let { pendingRemoteIdAssigned?.invoke(it) }
@@ -404,7 +400,9 @@ class WearableViewModel(
                             playlistConfirmed -> text(R.string.playlist_sent_confirmed)
                             else -> null
                         },
-                        errorMessage = it.errorMessage
+                        errorMessage = if (!playlistConfirmed) {
+                            text(R.string.playlist_write_not_confirmed)
+                        } else it.errorMessage
                     )
                 }
             } catch (exception: CancellationException) {
@@ -490,23 +488,6 @@ class WearableViewModel(
                 val targetRemoteId = existingRemoteId
                     ?: matchingRemotePlaylists.singleOrNull()?.id
                 val isUpdate = targetRemoteId != null
-                val existingSortId = targetRemoteId?.let { id ->
-                    remotePlaylists.firstOrNull { it.id == id }?.sortId
-                }?.takeIf { it >= 0 }
-                val highestDeviceSortId = remotePlaylists.map { it.sortId }
-                    .filter { it >= 0 }
-                    .maxOrNull()
-                val serial = _uiState.value.connectedSerial
-                    ?: error("Dispositivo non connesso")
-                val sortId = existingSortId ?: Math.addExact(
-                    highestDeviceSortId ?: BUILT_IN_PLAYLIST_SORT_ID,
-                    NEW_PLAYLIST_SORT_ID_GAP
-                )
-                Log.i(
-                    "WearableViewModel",
-                    "Playlist sortId allocation: serial=$serial deviceMax=$highestDeviceSortId " +
-                        "assigned=$sortId isUpdate=$isUpdate"
-                )
                 val playlistId = targetRemoteId ?: run {
                     // Suunto uses the local wall-clock fields as if they were UTC.
                     val now = System.currentTimeMillis()
@@ -517,7 +498,6 @@ class WearableViewModel(
                 }
                 val savedRemoteId = mdsClient.writePlaylist(
                     playlistId = playlistId,
-                    sortId = sortId,
                     isUpdate = isUpdate,
                     playlistName = playlist.name,
                     songKeys = keys
@@ -526,6 +506,8 @@ class WearableViewModel(
                 // The PUT acknowledgement is not device state. Keep rendering
                 // the last catalog until MDS returns the exact playlist and keys.
                 loadMusic()
+            } catch (exception: CancellationException) {
+                throw exception
             } catch (exception: Exception) {
                 pendingPlaylistName = null
                 pendingPlaylistId = null
